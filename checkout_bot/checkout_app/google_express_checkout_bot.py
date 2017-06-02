@@ -17,12 +17,15 @@ class GoogleExpressCheckoutBot(object):
     accounts_url = 'https://accounts.google.com'
     email = 'chaim14251@gmail.com'
     password = 'nochum11'
+
+    cart_url = 'https://www.google.com/express/cart'
+    google_express_url = 'https://www.google.com/express/'
     goods_url = 'https://www.google.com/express/u/0/product/' \
         '9182472493455614380_10269187404013219762_9090995?' \
         'ei=v1InWZDxHtKwigOy64PIDw&ved=0EOEqCA8'
     cart_url = 'https://www.google.com/express/u/0/cart'
-    button_change_xpath = '//ul[contains(@class, "addressSelectorDropdown")]' \
-        '/li/button'
+
+    delivery_address_updated = False
     user_is_authenticated = False
 
     def __init__(self, *args, **kwargs):
@@ -30,10 +33,17 @@ class GoogleExpressCheckoutBot(object):
             executable_path=settings.DRIVER_PATH)  # PhantomJS()
         self.browser.set_window_size(1024, 768)
 
+        self.recipient_order_name = 'Betty Luckett'
+        self.address = '1061 E Hyde Park Bl'
+        self.city = 'Inglewood'
+        self.state = 'CO'
+        self.postal_code = '90302'
+
     def place_an_order(self):
         """Make order for specified goods
         """
         self._make_login()
+        self._clean_cart_list()
         self._set_delivery_address()
         self._add_order()
         self._close_selenium_browser()
@@ -109,58 +119,210 @@ class GoogleExpressCheckoutBot(object):
         if elem_exists:
             self.user_is_authenticated = True
 
-    def _set_delivery_address(self):
-        self.browser.get(self.goods_url)
-        self._open_address_popup()
-        address = self._choose_address_from_popup()
-        if not address:
-            self._add_new_address_to_list()
-        #     self._choose_address_from_popup()
+    def _clean_cart_list(self):
+        self._open_cart()
+        items_count = self._get_items_count_in_cart()
+        if items_count and int(items_count) > 0:
+            self._remove_items_from_cart()
 
-    def _open_address_popup(self):
-        def wait_address_menu_button_load():
-            excp_msg = 'Timed out waiting for Address menu button load'
+    def _open_cart(self):
+        self.browser.get(self.cart_url)
+        try:
+            self._selenium_element_load_waiting(
+                By.CLASS_NAME, 'checkoutButton',
+                success_msg='Cart page loaded',
+                timeout_exception_msg='Timed out waiting Cart page open')
+        except Exception as e:
+            logger.error(e)
+
+    def _get_items_count_in_cart(self):
+        self.browser.get(self.cart_url)
+        xpath = '//button[contains(@class, "checkoutButton")]'
+
+        def wait_cart_items_load():
+            self._selenium_element_load_waiting(
+                By.XPATH, xpath, success_msg='Items page loaded',
+                timeout_exception_msg='Timed out waiting Items page load')
+
+        try:
+            wait_cart_items_load()
+            items = self.browser.find_elements_by_class_name('cartItem')
+            items_count = len(items)
+            logger.info('Current Items count in the cart %s' % items_count)
+            return items_count
+        except Exception as e:
+            logger.error(e)
+            return None
+
+    def _remove_items_from_cart(self):
+        def wait_cart_page_update():
+            self._selenium_element_load_waiting(
+                By.CLASS_NAME, 'checkoutButton',
+                success_msg='Cart page loaded',
+                timeout_exception_msg='Timed out waiting Cart page open')
+
+        def remove_item():
+            xpath = '//div[contains(@class, "cartItemOptions")][1]/a'
+            try:
+                remove_item_link = self.browser.find_element_by_xpath(xpath)
+                remove_item_link.click()
+                return True
+            except Exception as e:
+                logger.error(e)
+
+        while True:
+            count_in_cart = self._get_items_count_in_cart()
+            if count_in_cart and int(count_in_cart) > 0:
+                if not remove_item():
+                    break
+            else:
+                break
+
+    def _set_delivery_address(self):
+        self.browser.get(self.google_express_url)
+        self._open_address_dropdown_menu()
+        self._open_address_popup()
+        self._press_edit_address_link()
+        self._update_address()
+        self._select_first_from_address_list()
+
+    def _open_address_dropdown_menu(self):
+        def wait_dropdown_menu_load():
+            excp_msg = 'Timed out waiting for dropdown menu load'
             self._selenium_element_load_waiting(
                 By.CLASS_NAME, 'addressDeliverToZipLabel',
-                success_msg='Address menu button loaded',
+                success_msg='Dropdown menu loaded',
                 timeout_exception_msg=excp_msg)
 
         try:
-            wait_address_menu_button_load()
+            wait_dropdown_menu_load()
             show_popup_button = self.browser.find_element_by_class_name(
                 'addressDeliverToZipLabel')
             show_popup_button.click()
         except Exception as e:
             logger.error(e)
 
-    def _choose_address_from_popup(self):
+    def _open_address_popup(self):
+        xpath = '//ul[contains(@class, "addressSelectorDropdown")]/li/button'
+
         def wait_change_address_button_load():
             excp_msg = 'Timed out waiting for change address button load'
             self._selenium_element_load_waiting(
-                By.XPATH, self.button_change_xpath,
-                success_msg='Change address button loaded',
+                By.XPATH, xpath, success_msg='Change address button loaded',
                 timeout_exception_msg=excp_msg)
 
         try:
             wait_change_address_button_load()
-            text = '1061 E Hyde Park Bl'
-            change_button = self.browser.find_element_by_xpath(
-                '//a[contains(@class, "addressLink")]')  # contains(., "' + text + '")]')
-            logger.info(change_button)
-            change_button.click()
-            time.sleep(10)
-        except Exception as e:
-            logger.error(e)
-
-    def _add_new_address_to_list(self):
-        try:
-            change_address_button = self.browser.find_element_by_xpath(
-                self.button_change_xpath)
+            change_address_button = self.browser.find_element_by_xpath(xpath)
             change_address_button.click()
         except Exception as e:
             logger.error(e)
 
+    def _press_edit_address_link(self):
+        xpath = '//div[contains(@class, "addressButtonArea")]/' \
+            'button/span[contains(text(),"edit")][1]'
+
+        def wait_edit_address_link_load():
+            excp_msg = 'Timed out waiting for edit address link load'
+            self._selenium_element_load_waiting(
+                By.XPATH, xpath,
+                success_msg='Edit address link loaded',
+                timeout_exception_msg=excp_msg)
+
+        try:
+            wait_edit_address_link_load()
+            edit_address_link = self.browser.find_element_by_xpath(xpath)
+            edit_address_link.click()
+        except Exception as e:
+            logger.error(e)
+
+    def _update_address(self):
+        def wait_edit_address_popup_load():
+            excp_msg = 'Timed out waiting for address form load'
+            self._selenium_element_load_waiting(
+                By.NAME, 'addressForm',
+                success_msg='Address form loaded',
+                timeout_exception_msg=excp_msg)
+
+        def send_recipient_order_name():
+            recipient_order_name = self.browser.find_element_by_name('name')
+            recipient_order_name.clear()
+            recipient_order_name.send_keys(self.recipient_order_name)
+
+        def send_address():
+            address = self.browser.find_element_by_xpath(
+                '//input[@name="address"]')
+            address.clear()
+            address.send_keys(self.address)
+
+        def send_city():
+            city = self.browser.find_element_by_name('city')
+            city.clear()
+            city.send_keys(self.city)
+
+        def send_state():
+            xpath = '//md-option[@value="' + self.state + '"]'
+
+            def wait_state_popup_load():
+                excp_msg = 'Timed out waiting for state popup load'
+                self._selenium_element_load_waiting(
+                    By.XPATH, xpath,
+                    success_msg='State popup loaded',
+                    timeout_exception_msg=excp_msg)
+
+            state_field = self.browser.find_element_by_name('state')
+            state_field.click()
+            wait_state_popup_load()
+            state_option = self.browser.find_element_by_xpath(xpath)
+            state_option.click()
+
+        def send_postal_code():
+            postal_code = self.browser.find_element_by_name('postalCode')
+            postal_code.clear()
+            postal_code.send_keys(self.postal_code)
+
+        save_button_xpath = '//form[@name="addressForm"]/' \
+            'md-dialog-actions/button[@type="submit"]'
+
+        try:
+            wait_edit_address_popup_load()
+            send_recipient_order_name()
+            send_address()
+            send_city()
+            send_postal_code()
+            send_state()
+            time.sleep(2)
+            button_save = self.browser.find_element_by_xpath(save_button_xpath)
+            button_save.click()
+        except Exception as e:
+            logger.error(e)
+
+    def _select_first_from_address_list(self):
+        xpath = '//md-list-item[contains(@class, "addressOption")][1]/' \
+            'div/gsx-address-content'
+
+        def wait_change_address_popup_load():
+            excp_msg = 'Timed out waiting for change address popup load'
+            self._selenium_element_load_waiting(
+                By.XPATH, xpath,
+                success_msg='Change address popup loaded',
+                timeout_exception_msg=excp_msg)
+
+        try:
+            wait_change_address_popup_load()
+            edit_address_link = self.browser.find_element_by_xpath(xpath)
+            edit_address_link.click()
+            self.delivery_address_updated = True
+        except Exception as e:
+            logger.error(e)
+
     def _add_order(self):
+        self.browser.get(self.goods_url)
+
+        if not self.delivery_address_updated:
+            # TODO: return not updated delivery address status
+            pass
+
         if self.user_is_authenticated:
             self._add_goods_to_cart()
             self._go_to_shopping_cart_and_checkout()
@@ -171,7 +333,7 @@ class GoogleExpressCheckoutBot(object):
             self._selenium_element_load_waiting(
                 By.CLASS_NAME, 'addItemButton',
                 success_msg='Add item button loaded',
-                timeout_exception_msg='Timed out waiting for ADD BUTTON')
+                timeout_exception_msg='Timed out waiting for Add item button')
 
         try:
             wait_add_to_cart_button_load()
