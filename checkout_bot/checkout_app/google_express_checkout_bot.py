@@ -23,7 +23,6 @@ class GoogleExpressCheckoutBot(object):
     goods_url = 'https://www.google.com/express/u/0/product/' \
         '9182472493455614380_10269187404013219762_9090995?' \
         'ei=v1InWZDxHtKwigOy64PIDw&ved=0EOEqCA8'
-    cart_url = 'https://www.google.com/express/u/0/cart'
 
     delivery_address_updated = False
     user_is_authenticated = False
@@ -120,63 +119,40 @@ class GoogleExpressCheckoutBot(object):
             self.user_is_authenticated = True
 
     def _clean_cart_list(self):
-        self._open_cart()
-        items_count = self._get_items_count_in_cart()
-        if items_count and int(items_count) > 0:
-            self._remove_items_from_cart()
+        while True:
+            time.sleep(10)
+            self.browser.get(self.cart_url)
+            self._remove_item_from_cart()
+            if self._is_cart_empty():
+                break
 
-    def _open_cart(self):
-        self.browser.get(self.cart_url)
-        try:
-            self._selenium_element_load_waiting(
-                By.CLASS_NAME, 'checkoutButton',
-                success_msg='Cart page loaded',
-                timeout_exception_msg='Timed out waiting Cart page open')
-        except Exception as e:
-            logger.error(e)
-
-    def _get_items_count_in_cart(self):
-        self.browser.get(self.cart_url)
-        xpath = '//button[contains(@class, "checkoutButton")]'
+    def _remove_item_from_cart(self):
+        xpath = '//div[contains(@class, "cartItemOptions")][1]/a'
 
         def wait_cart_items_load():
+            excp_msg = 'Timed out waiting Remove item button load'
             self._selenium_element_load_waiting(
-                By.XPATH, xpath, success_msg='Items page loaded',
-                timeout_exception_msg='Timed out waiting Items page load')
+                By.XPATH, xpath,
+                success_msg='Remove item button loaded',
+                timeout_exception_msg=excp_msg)
 
         try:
             wait_cart_items_load()
-            items = self.browser.find_elements_by_class_name('cartItem')
-            items_count = len(items)
-            logger.info('Current Items count in the cart %s' % items_count)
-            return items_count
+            remove_item_link = self.browser.find_element_by_xpath(xpath)
+            remove_item_link.click()
         except Exception as e:
             logger.error(e)
-            return None
 
-    def _remove_items_from_cart(self):
-        def wait_cart_page_update():
-            self._selenium_element_load_waiting(
-                By.CLASS_NAME, 'checkoutButton',
-                success_msg='Cart page loaded',
-                timeout_exception_msg='Timed out waiting Cart page open')
-
-        def remove_item():
-            xpath = '//div[contains(@class, "cartItemOptions")][1]/a'
-            try:
-                remove_item_link = self.browser.find_element_by_xpath(xpath)
-                remove_item_link.click()
+    def _is_cart_empty(self):
+        try:
+            cart_is_empty = self.browser.find_elements_by_class_name(
+                'emptyCartMessageWrapper')
+            if cart_is_empty:
+                logger.info('Message "Cart is empty" displayed')
                 return True
-            except Exception as e:
-                logger.error(e)
-
-        while True:
-            count_in_cart = self._get_items_count_in_cart()
-            if count_in_cart and int(count_in_cart) > 0:
-                if not remove_item():
-                    break
-            else:
-                break
+        except Exception as e:
+            logger.error(e)
+            return False
 
     def _set_delivery_address(self):
         self.browser.get(self.google_express_url)

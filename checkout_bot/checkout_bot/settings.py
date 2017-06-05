@@ -17,6 +17,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 LOGS_DIR = os.path.join(BASE_DIR, 'logs')
 
+PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.11/howto/deployment/checklist/
 
@@ -24,13 +26,13 @@ LOGS_DIR = os.path.join(BASE_DIR, 'logs')
 SECRET_KEY = 'pardbk7%d8%4(%n_xoob#c&!wh$n_0b6l_^49f!jkksatukto6'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
+LOGIN_URL = '/login/'
 
 # Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -56,7 +58,7 @@ ROOT_URLCONF = 'checkout_bot.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -119,7 +121,15 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.11/howto/static-files/
 
+STATIC_ROOT = os.path.join(PROJECT_DIR, 'static')
+
 STATIC_URL = '/static/'
+
+# contain own static files in root folder that will be
+# collected from with python manage.py collectstatic command
+STATICFILES_DIRS = (
+    os.path.join(BASE_DIR, 'static'),
+)
 
 TIMEOUT_PAGE_LAODING = 60
 
@@ -155,5 +165,7 @@ LOGGING = {
 }
 
 DRIVER_PATH = os.path.join(BASE_DIR, '3dparty', 'chromedriver')
+
+ROWS_ON_PAGE = 10
 
 from settings_local import *
