@@ -8,6 +8,8 @@ urlpatterns = [
     url(r'^logout/$', views.LogoutView.as_view(), name='logout'),
     url(r'^orders-list/(?P<pk>[0-9]+)/$',
         views.OrdersListView.as_view(), name='orders-list'),
+    url(r'^upload_file_with_products/$',
+        views.upload_file_with_products, name='upload_file'),
     url(r'^handled-orders/(?P<pk>[0-9]+)/$',
         views.get_handled_orders, name='handled-orders'),
 ]

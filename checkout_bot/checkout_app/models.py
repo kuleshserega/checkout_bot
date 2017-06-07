@@ -4,14 +4,16 @@ from __future__ import unicode_literals
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 
-STATE_IN_PROCESS = 1
-STATE_FINISHED = 2
-STATE_ERROR = 3
+STATE_CREATED = 1
+STATE_IN_PROCESS = 2
+STATE_FINISHED = 3
+STATE_ERROR = 4
 
 STATE_CHOICES = (
-    (STATE_IN_PROCESS, _('Search in process')),
-    (STATE_FINISHED, _('Search is finished')),
-    (STATE_ERROR, _('Search has errors')),
+    (STATE_CREATED, _('Product order created')),
+    (STATE_IN_PROCESS, _('Handling order')),
+    (STATE_FINISHED, _('Order processed')),
+    (STATE_ERROR, _('Order processed with errors')),
 )
 
 
@@ -28,15 +30,33 @@ class ProductOrder(models.Model):
     product_url = models.CharField(
         default=None, null=True, blank=True,
         max_length=255, verbose_name=_('Product url'))
-    product_name = models.IntegerField(
+    product_name = models.CharField(
         default=None, null=True, blank=True,
-        verbose_name=_('Product name'))
+        max_length=255, verbose_name=_('Product name'))
+    product_buyer = models.CharField(
+        default=None, null=True, blank=True,
+        max_length=120, verbose_name=_('Product buyer'))
+    buyer_address = models.CharField(
+        default=None, null=True, blank=True,
+        max_length=255, verbose_name=_('Buyer address'))
+    buyer_city = models.CharField(
+        default=None, null=True, blank=True,
+        max_length=120, verbose_name=_('Buyer city'))
+    buyer_state_code = models.CharField(
+        default=None, null=True, blank=True,
+        max_length=25, verbose_name=_('Buyer state code'))
+    buyer_postal_code = models.CharField(
+        default=None, null=True, blank=True,
+        max_length=25, verbose_name=_('Buyer postal code'))
     status = models.SmallIntegerField(
         default=1, choices=STATE_CHOICES, verbose_name=_('Status of order'))
     date_created = models.DateTimeField(
         auto_now_add=True, verbose_name=_('Date created'))
     date_started = models.DateTimeField(
-        auto_now_add=True, verbose_name=_('Date started'))
+        blank=True, null=True, verbose_name=_('Date started'))
+    orders_file = models.ForeignKey(
+        'OrdersFileList', null=True, blank=True,
+        verbose_name=_('Orders file list instance'))
 
     def as_dict(self):
         return {
@@ -50,4 +70,4 @@ class ProductOrder(models.Model):
         }
 
     def __str__(self):
-        return self.search_term
+        return self.product_url

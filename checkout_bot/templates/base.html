@@ -18,10 +18,10 @@
       {% include 'inc/notifications.html' %}
     {% endblock %}
     <div class="block-header">
-      <h1 class="h1-logo"><a class="head-white" href="/"><img class="top-logo-img" src="{% static 'img/linkedin-icon-19.png' %}" />Checkout Bot</a></h1>
+      <h1 class="h1-logo"><a class="head-white" href="/"><img class="top-logo-img" src="{% static 'img/Google-Shopping-Express_1.png' %}" />Checkout Bot</a></h1>
       {% if request.user.username %}
       <div class="logout">
-          {{ request.user.first_name }} {{ request.user.last_name }} <a class="btn btn-primary btn-lg" href="{% url 'checkoutapp:logout' %}"> <span class="glyphicon glyphicon-log-out"></span> Log out </a>
+          {{ request.user.first_name }} {{ request.user.last_name }} <a class="btn btn-success btn-lg" href="{% url 'checkoutapp:logout' %}"> <span class="glyphicon glyphicon-log-out"></span> Log out </a>
       </div>
       {% endif %}
     </div>    

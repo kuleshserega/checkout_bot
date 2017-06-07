@@ -27,7 +27,7 @@ class GoogleExpressCheckoutBot(object):
     delivery_address_updated = False
     user_is_authenticated = False
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, order_id=None, *args, **kwargs):
         self.browser = webdriver.Chrome(
             executable_path=settings.DRIVER_PATH)  # PhantomJS()
         self.browser.set_window_size(1024, 768)

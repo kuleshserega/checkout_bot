@@ -11,9 +11,12 @@
   <div class="row">
     <div>
       <h1 class="h1-proj">Uploaded files list</h1>
-      <form class="file-upload-form" action="{#% url 'checkoutapp:runsearch' %#}" method="GET">
-        <input id="file_upload" type="submit" class="btn btn-lg btn-primary btn-block search_buttons el-width-110" value="UPLOAD" />
-        <input id="file_input" type="file" placeholder="Select file with orders" name="search_geo" value="UPLOAD" />
+      <form class="file-upload-form" action="{% url 'checkoutapp:upload_file' %}" method="POST" enctype="multipart/form-data">{% csrf_token %}
+        <input id="file_upload" type="submit" class="btn btn-lg btn-success btn-block search_buttons el-width-110" value="UPLOAD" />
+        <label class="btn btn-lg btn-success search_buttons el-width-110">
+          BROWSE
+          <input style="display: none;" id="file_input" type="file" placeholder="Select file with orders" name="orders_list"  />
+        </label>
       </form>
     </div>
     {% if results %}
@@ -31,7 +34,7 @@
             <td>{{ result.id }}</td>
             <td>{% if result.file_name %}{{ result.file_name }}{% endif %}</td>
             <td><a title="Search details" target="_blank" class="center" href="{% url 'checkoutapp:orders-list' result.id %}"><img width=25 src="{% static 'img/details.png' %}" /></a></td>
-            <td><a title="Save to CSV" class="center" href="{% url 'checkoutapp:get-handled-orders' result.id %}"><img width=25 src="{% static 'img/save.png' %}" /></a></td>
+            <td><a title="Save to CSV" class="center" href="{% url 'checkoutapp:handled-orders' result.id %}"><img width=25 src="{% static 'img/save.png' %}" /></a></td>
           </tr>
         {% endfor %}
       </table>
