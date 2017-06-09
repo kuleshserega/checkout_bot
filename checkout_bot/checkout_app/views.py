@@ -1,8 +1,9 @@
 # -*- coding: UTF-8 -*-
 from openpyxl import load_workbook
 from io import BytesIO
+import csv
 
-from django.http import HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect
 from django.views.generic.base import View
 from django.views.generic.edit import FormView
 from django.views.generic import ListView
@@ -14,6 +15,7 @@ from django.contrib import messages
 from django.conf import settings
 
 from checkout_app.models import OrdersFileList, ProductOrder
+from checkout_app.tasks import add_processing_of_product
 
 
 class LoginFormView(FormView):
@@ -84,9 +86,42 @@ def upload_file_with_products(request):
                 buyer_postal_code=row[7].value,
                 orders_file=orders_file_list)
             order.save()
+            add_processing_of_product.delay(order.id)
 
     return HttpResponseRedirect('/')
 
 
-def get_handled_orders(request):
-    pass
+def get_orders_in_xlsx(request, pk):
+    try:
+        fl = OrdersFileList.objects.get(pk=pk)
+    except Exception:
+        return HttpResponse('File do not exists')
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = \
+        'attachment; filename="%s_employees.csv"' % fl.file_name
+
+    qs = ProductOrder.objects.filter(orders_file_id=fl.id).order_by('id')
+
+    writer = csv.writer(response)
+    for row in qs:
+        product_url = row.product_url.encode(
+            'utf-8').replace(';', '.') if row.product_url else None
+        product_name = row.product_name.encode(
+            'utf-8').replace(';', '.') if row.product_name else None
+        product_buyer = row.product_buyer.encode(
+            'utf-8').replace(';', '.') if row.product_buyer else None
+        buyer_address = row.buyer_address.encode(
+            'utf-8').replace(';', '.') if row.buyer_address else None
+        buyer_city = row.buyer_city.encode(
+            'utf-8').replace(';', '.') if row.buyer_city else None
+        buyer_state_code = row.buyer_state_code.encode(
+            'utf-8').replace(';', '.') if row.buyer_state_code else None
+        buyer_postal_code = row.buyer_postal_code.encode(
+            'utf-8').replace(';', '.') if row.buyer_postal_code else None
+        status = row.get_status_display()
+        writer.writerow([
+            product_url, product_name, product_buyer, buyer_address,
+            buyer_city, buyer_state_code, buyer_postal_code, status])
+
+    return response

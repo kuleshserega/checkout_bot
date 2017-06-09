@@ -1,6 +1,6 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
 from django.contrib import admin
 
-# Register your models here.
+from checkout_app.models import ProductOrder, OrdersFileList
+
+admin.site.register(ProductOrder)
+admin.site.register(OrdersFileList)

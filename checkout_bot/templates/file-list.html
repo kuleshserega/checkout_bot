@@ -34,7 +34,7 @@
             <td>{{ result.id }}</td>
             <td>{% if result.file_name %}{{ result.file_name }}{% endif %}</td>
             <td><a title="Search details" target="_blank" class="center" href="{% url 'checkoutapp:orders-list' result.id %}"><img width=25 src="{% static 'img/details.png' %}" /></a></td>
-            <td><a title="Save to CSV" class="center" href="{% url 'checkoutapp:handled-orders' result.id %}"><img width=25 src="{% static 'img/save.png' %}" /></a></td>
+            <td><a title="Save to CSV" class="center" href="{% url 'checkoutapp:get-orders' result.id %}"><img width=25 src="{% static 'img/save.png' %}" /></a></td>
           </tr>
         {% endfor %}
       </table>

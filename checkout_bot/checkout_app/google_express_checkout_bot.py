@@ -10,6 +10,8 @@ from selenium.webdriver.common.by import By
 
 from django.conf import settings
 
+from checkout_app.models import ProductOrder
+
 logger = logging.getLogger('google_express_logger')
 
 
@@ -24,27 +26,32 @@ class GoogleExpressCheckoutBot(object):
         '9182472493455614380_10269187404013219762_9090995?' \
         'ei=v1InWZDxHtKwigOy64PIDw&ved=0EOEqCA8'
 
+    product_order = None
+
     delivery_address_updated = False
     user_is_authenticated = False
 
     def __init__(self, order_id=None, *args, **kwargs):
         self.browser = webdriver.Chrome(
-            executable_path=settings.DRIVER_PATH)  # PhantomJS()
+            executable_path=settings.DRIVER_PATH)
         self.browser.set_window_size(1024, 768)
 
-        self.recipient_order_name = 'Betty Luckett'
-        self.address = '1061 E Hyde Park Bl'
-        self.city = 'Inglewood'
-        self.state = 'CO'
-        self.postal_code = '90302'
+        try:
+            self.product_order = ProductOrder.objects.get(pk=order_id)
+        except ProductOrder.DoesNotExist as e:
+            logger.error(e)
 
     def place_an_order(self):
         """Make order for specified goods
         """
-        self._make_login()
-        self._clean_cart_list()
-        self._set_delivery_address()
-        self._add_order()
+        if self.product_order:
+            self._make_login()
+            self._clean_cart_list()
+            self._set_delivery_address()
+            self._add_order()
+
+        self.product_order.status = 3
+        self.product_order.save()
         self._close_selenium_browser()
 
     def _make_login(self):
@@ -223,21 +230,22 @@ class GoogleExpressCheckoutBot(object):
         def send_recipient_order_name():
             recipient_order_name = self.browser.find_element_by_name('name')
             recipient_order_name.clear()
-            recipient_order_name.send_keys(self.recipient_order_name)
+            recipient_order_name.send_keys(self.product_order.product_buyer)
 
         def send_address():
             address = self.browser.find_element_by_xpath(
                 '//input[@name="address"]')
             address.clear()
-            address.send_keys(self.address)
+            address.send_keys(self.product_order.buyer_address)
 
         def send_city():
             city = self.browser.find_element_by_name('city')
             city.clear()
-            city.send_keys(self.city)
+            city.send_keys(self.product_order.buyer_city)
 
         def send_state():
-            xpath = '//md-option[@value="' + self.state + '"]'
+            xpath = '//md-option[@value="' + \
+                self.product_order.buyer_state_code + '"]'
 
             def wait_state_popup_load():
                 excp_msg = 'Timed out waiting for state popup load'
@@ -255,7 +263,7 @@ class GoogleExpressCheckoutBot(object):
         def send_postal_code():
             postal_code = self.browser.find_element_by_name('postalCode')
             postal_code.clear()
-            postal_code.send_keys(self.postal_code)
+            postal_code.send_keys(self.product_order.buyer_postal_code)
 
         save_button_xpath = '//form[@name="addressForm"]/' \
             'md-dialog-actions/button[@type="submit"]'

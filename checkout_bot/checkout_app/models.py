@@ -70,4 +70,4 @@ class ProductOrder(models.Model):
         }
 
     def __str__(self):
-        return self.product_url
+        return self.product_url if self.product_url else str(self.id)
