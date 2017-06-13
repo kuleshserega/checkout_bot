@@ -6,14 +6,16 @@ from django.utils.translation import ugettext_lazy as _
 
 STATE_CREATED = 1
 STATE_IN_PROCESS = 2
-STATE_FINISHED = 3
+STATE_SUCCESS_FINISHED = 3
 STATE_ERROR = 4
+STATE_SOLD_OUT = 5
 
 STATE_CHOICES = (
     (STATE_CREATED, _('Product order created')),
     (STATE_IN_PROCESS, _('Handling order')),
-    (STATE_FINISHED, _('Order processed')),
+    (STATE_SUCCESS_FINISHED, _('Order processed')),
     (STATE_ERROR, _('Order processed with errors')),
+    (STATE_SOLD_OUT, _('Product sold out')),
 )
 
 

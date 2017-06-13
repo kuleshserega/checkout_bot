@@ -1,5 +1,6 @@
 # -*- coding: UTF-8 -*-
-from openpyxl import load_workbook
+from openpyxl import load_workbook, Workbook
+from openpyxl.writer.excel import save_virtual_workbook
 from io import BytesIO
 import csv
 
@@ -97,13 +98,17 @@ def get_orders_in_xlsx(request, pk):
     except Exception:
         return HttpResponse('File do not exists')
 
-    response = HttpResponse(content_type='text/csv')
+    workbook = Workbook()
+    worksheet = workbook.active
+
+    mimetype = 'application/' \
+        'vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    response = HttpResponse(
+        content=save_virtual_workbook(workbook), content_type=mimetype)
     response['Content-Disposition'] = \
-        'attachment; filename="%s_employees.csv"' % fl.file_name
+        'attachment; filename="%s_employees.xlsx"' % fl.file_name
 
     qs = ProductOrder.objects.filter(orders_file_id=fl.id).order_by('id')
-
-    writer = csv.writer(response)
     for row in qs:
         product_url = row.product_url.encode(
             'utf-8').replace(';', '.') if row.product_url else None
@@ -120,8 +125,10 @@ def get_orders_in_xlsx(request, pk):
         buyer_postal_code = row.buyer_postal_code.encode(
             'utf-8').replace(';', '.') if row.buyer_postal_code else None
         status = row.get_status_display()
-        writer.writerow([
+        worksheet.append([
             product_url, product_name, product_buyer, buyer_address,
             buyer_city, buyer_state_code, buyer_postal_code, status])
+
+    workbook.save(response)
 
     return response

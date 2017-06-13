@@ -10,15 +10,16 @@ from selenium.webdriver.common.by import By
 
 from django.conf import settings
 
-from checkout_app.models import ProductOrder
+from checkout_app.models import ProductOrder, STATE_IN_PROCESS, \
+    STATE_SOLD_OUT, STATE_SUCCESS_FINISHED, STATE_ERROR
 
 logger = logging.getLogger('google_express_logger')
 
 
 class GoogleExpressCheckoutBot(object):
     accounts_url = 'https://accounts.google.com'
-    email = 'chaim14251@gmail.com'
-    password = 'nochum11'
+    email = 'alex@halevienterprises.com'
+    password = 'nochum12'
 
     cart_url = 'https://www.google.com/express/cart'
     google_express_url = 'https://www.google.com/express/'
@@ -28,7 +29,6 @@ class GoogleExpressCheckoutBot(object):
 
     product_order = None
 
-    delivery_address_updated = False
     user_is_authenticated = False
 
     def __init__(self, order_id=None, *args, **kwargs):
@@ -38,6 +38,9 @@ class GoogleExpressCheckoutBot(object):
 
         try:
             self.product_order = ProductOrder.objects.get(pk=order_id)
+            self.product_order.status = STATE_IN_PROCESS
+            self.product_order.save()
+            logger.warn('Product order ID: ' + str(self.product_order.id))
         except ProductOrder.DoesNotExist as e:
             logger.error(e)
 
@@ -50,8 +53,6 @@ class GoogleExpressCheckoutBot(object):
             self._set_delivery_address()
             self._add_order()
 
-        self.product_order.status = 3
-        self.product_order.save()
         self._close_selenium_browser()
 
     def _make_login(self):
@@ -296,21 +297,38 @@ class GoogleExpressCheckoutBot(object):
             wait_change_address_popup_load()
             edit_address_link = self.browser.find_element_by_xpath(xpath)
             edit_address_link.click()
-            self.delivery_address_updated = True
         except Exception as e:
             logger.error(e)
 
     def _add_order(self):
         self.browser.get(self.goods_url)
 
-        if not self.delivery_address_updated:
-            # TODO: return not updated delivery address status
-            pass
+        goods_sold_out = self._check_goods_sold_out()
 
-        if self.user_is_authenticated:
+        if self.user_is_authenticated and not goods_sold_out:
             self._add_goods_to_cart()
             self._go_to_shopping_cart_and_checkout()
             self._press_on_place_order_button()
+            self._is_order_confirmation_container()
+
+    def _check_goods_sold_out(self):
+        exc_msg = 'Timed out waiting for Sold out text load'
+
+        def wait_sold_out_entry():
+            self._selenium_element_load_waiting(
+                By.CLASS_NAME, 'soldOutText',
+                success_msg='Sold out text loaded',
+                timeout_exception_msg=exc_msg)
+
+        try:
+            wait_sold_out_entry()
+            self.browser.find_element_by_class_name('soldOutText')
+            self.product_order.status = STATE_SOLD_OUT
+            self.product_order.save()
+            return True
+        except Exception as e:
+            logger.error(e)
+            return False
 
     def _add_goods_to_cart(self):
         def wait_add_to_cart_button_load():
@@ -344,7 +362,40 @@ class GoogleExpressCheckoutBot(object):
             logger.error(e)
 
     def _press_on_place_order_button(self):
-        pass
+        def wait_submit_order_button_load():
+            self._selenium_element_load_waiting(
+                By.CLASS_NAME, 'submitOrderButton',
+                success_msg='Submit order button loaded',
+                timeout_exception_msg='Timed out waiting Submit order button')
+
+        try:
+            wait_submit_order_button_load()
+            submit_order_button = self.browser.find_element_by_class_name(
+                'submitOrderButton')
+            submit_order_button.click()
+        except Exception as e:
+            logger.error(e)
+
+    def _is_order_confirmation_container(self):
+        exc_msg = 'Timed out waiting Order confirmation container'
+
+        def wait_order_confirmation_container_load():
+            self._selenium_element_load_waiting(
+                By.CLASS_NAME, 'orderConfirmationContainer',
+                success_msg='Order confirmation container loaded',
+                timeout_exception_msg=exc_msg)
+
+        try:
+            wait_order_confirmation_container_load()
+            order_confirmation = self.browser.find_element_by_class_name(
+                'orderConfirmationContainer')
+            if order_confirmation:
+                self.product_order.status = STATE_SUCCESS_FINISHED
+        except Exception as e:
+            logger.error(e)
+            self.product_order.status = STATE_ERROR
+
+        self.product_order.save()
 
     def _close_selenium_browser(self):
         try:
